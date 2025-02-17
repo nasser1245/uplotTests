@@ -6,7 +6,7 @@ import 'uplot/dist/uPlot.min.css'
 const chartContainer = ref(null)
 let chartInstance = null
 const numSeries = 40
-const numPoints = 10000
+const numPoints = 1000
 
 const generateSmoothData = (series = 2, points = 50) => {
   const data = new Array(series).fill(null).map(() => new Array(points))
