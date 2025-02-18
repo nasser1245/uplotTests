@@ -13,11 +13,13 @@ const generateSmoothData = (series = 2, points = 50) => {
   const options = []
   for (let j = 0; j < series; j++) {
     const start = Math.random() * 200 - 100
-    const variation = Math.random(20)
+    const variation = Math.random() * 20
+    const scale = `y${(j % 8) + 1}`
     options[j] = {
       label: `دمای ${j + 1}`,
       stroke: '#' + (((1 << 24) * Math.random()) | 0).toString(16).padStart(6, '0'),
       width: 2,
+      scale: scale,
     }
     data[j][0] = start
     for (let i = 1; i < points; i++) {
@@ -26,93 +28,69 @@ const generateSmoothData = (series = 2, points = 50) => {
       data[j][i] = prev + change
     }
   }
-
   return { data, options }
 }
 
-const xAxis = Array.from({ length: numPoints }, (_, i) => (i / numPoints) * numPoints)
-console.log(xAxis)
-
-// Generate Y-values
+const xAxis = Array.from({ length: numPoints }, (_, i) => i)
 const ySeries = generateSmoothData(numSeries, numPoints)
 const chartData = ref([xAxis, ...ySeries.data])
 
+const yScales = {};
+for (let i = 1; i <= 8; i++) {
+  yScales[`y${i}`] = { auto: true };
+}
+
+const colors = ['#ff0000', '#0000ff', '#00ff00', '#ff8800', '#800080', '#8B4513', '#ff1493', '#00ffff'];
+const yAxes = [];
+for (let i = 1; i <= 8; i++) {
+  yAxes.push({
+    scale: `y${i}`,
+    side: 3, // محورها در سمت راست
+    label: `y${i}`,
+    stroke: colors[i - 1],
+    space: 15, // کاهش فاصله محورها
+    size: 0,
+    labelPos: 30, // جابجایی برچسب به سمت راست
+    gap: 5,
+    rotate: -50, // چرخش برچسب
+  });
+}
+
 const options = {
-  title: `${numSeries} Series Chart with X [0-${numPoints - 1}]`,
-  width: 1000,
-  height: 300,
+  title: `${numSeries} Series Chart with Multiple Y Axes`,
+  width: 1400,
+  height: 700,
   scales: {
     x: { time: false, min: 0, max: numPoints },
-    y: { auto: true },
+    ...yScales,
   },
-  series: [{ label: 'X Axis' }, ...ySeries.options],
-  // axes: [
-  //   { space: 40 }, // X-axis spacing
-  //   { space: 50 }, // Y-axis spacing
-  // ],
-  hooks: {
-    init: [
-      (u) => {
-        let xMin = u.scales.x.min
-        let xMax = u.scales.x.max
-
-        chartContainer.value.addEventListener('wheel', (e) => {
-          e.preventDefault() // Prevent page scrolling
-          console.log('Mouse wheel event')
-          const zoomFactor = 0.1 // Adjust zoom speed
-          const scale = e.deltaY > 0 ? 1 + zoomFactor : 1 - zoomFactor
-
-          const range = xMax - xMin
-          const mid = xMin + range / 2
-          const newRange = range * scale
-          xMin = mid - newRange / 2
-          xMax = mid + newRange / 2
-
-          u.setScale('x', { min: xMin, max: xMax })
-        })
-
-        chartContainer.value.addEventListener('mousemove', (e) => {
-          if (!isDragging) return
-
-          const deltaX = e.clientX - startX
-          const shift = (deltaX * (xMax - xMin)) / 600
-          xMin -= shift
-          xMax -= shift
-          startX = e.clientX
-
-          u.setScale('x', { min: xMin, max: xMax })
-        })
-
-        let isDragging = false
-        let startX = 0
-
-        chartContainer.value.addEventListener('mouseup', () => {
-          isDragging = false
-        })
-
-        chartContainer.value.addEventListener('mouseleave', () => {
-          isDragging = false
-        })
-      },
-    ],
-  },
+  // series: [{ label: 'X Axis' }, ...ySeries.options],
+  series: [{ label: 'X Axis' }, 
+           ...ySeries.options.map((option) => ({
+             ...option,  // ویژگی‌های موجود در ySeries.options
+             points: { size: 6 },  // اندازه نقاط داده‌ها را کوچک‌تر می‌کنیم
+             width: 2,  // خط‌ها را نازک‌تر می‌کنیم
+           }))
+  ],
+  axes: [{ space: 40 }, ...yAxes],
 }
 
 onMounted(() => {
   if (chartContainer.value) {
     chartInstance = new uPlot(options, chartData.value, chartContainer.value)
+  } else {
+    console.error("chartContainer is not available")
   }
 })
 
-// Watch for data changes (for real-time updates)
 watch(
   chartData,
-  (newData) => {
+  () => {
     if (chartInstance) {
-      chartInstance.setData(newData)
+      chartInstance.setData(chartData.value)
     }
   },
-  { deep: true },
+  { deep: true }
 )
 
 onBeforeUnmount(() => {
