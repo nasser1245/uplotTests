@@ -28,8 +28,8 @@ const generateSmoothData = (series = 2, points = 50) => {
     options[j] = {
       label: `دمای ${j + 1}`,
       stroke: '#' + (((1 << 24) * Math.random()) | 0).toString(16).padStart(6, '0'),
-      width: 1,
-      dash: [100, 10, 50, 20],
+      width: 1 + Math.floor(Math.random()*3) * 0.5,
+      dash: [10, 2, 3, 2],
       scale: scale,
       value: (self, rawValue) => {
         try {
@@ -111,6 +111,7 @@ const options = {
           const scale = e.deltaY > 0 ? 1.2 : 0.8
 
           const range = xMax - xMin
+          //const mid = xMin + chartInstance.valToPos(e.offsetX, 'x') * 
           const mid = xMin + range / 2
           const newRange = range * scale
           xMin = mid - newRange / 2 < 0

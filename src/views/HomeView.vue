@@ -1,5 +1,4 @@
 <script>
-import ImageSlider from '@/components/ImageSlider.vue'
 import MapComponent from '@/components/MapComponent.vue'
 import NavBar from '@/components/NavBar.vue'
 
