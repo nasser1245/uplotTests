@@ -61,13 +61,22 @@ const xAxis = Array.from({ length: numPoints }, (_, i) => i)
 const ySeries = generateSmoothData(numSeries, numPoints)
 const chartData = ref([xAxis, ...ySeries.data])
 
-const yScales = {};
+const yScales = {}
 for (let i = 1; i <= 8; i++) {
-  yScales[`y${i}`] = { auto: true };
+  yScales[`y${i}`] = { auto: true }
 }
 
-const colors = ['#ff0000', '#0000ff', '#00ff00', '#ff8800', '#800080', '#8B4513', '#ff1493', '#00ffff'];
-const yAxes = [];
+const colors = [
+  '#ff0000',
+  '#0000ff',
+  '#00ff00',
+  '#ff8800',
+  '#800080',
+  '#8B4513',
+  '#ff1493',
+  '#00ffff',
+]
+const yAxes = []
 for (let i = 1; i <= 8; i++) {
   yAxes.push({
     scale: `y${i}`,
@@ -79,7 +88,7 @@ for (let i = 1; i <= 8; i++) {
     labelPos: 30, // جابجایی برچسب به سمت راست
     gap: 5,
     rotate: -50, // چرخش برچسب
-  });
+  })
 }
 
 const options = {
@@ -105,21 +114,53 @@ const options = {
       (u) => {
         chartContainer.value.addEventListener('wheel', (e) => {
           e.preventDefault() // Prevent page scrolling
+
           let xMin = u.scales.x.min
           let xMax = u.scales.x.max
-          console.log('Mouse wheel event')
-          const scale = e.deltaY > 0 ? 1.2 : 0.8
+          const scale = e.deltaY > 0 ? 1.2 : 0.8 // Zoom in or out
 
           const range = xMax - xMin
-          const mid = xMin + range / 2
+
+          // Get mouse position relative to the chart
+          //const rect = chartContainer.value.getBoundingClientRect()
+          //const mouseX = e.clientX - rect.left
+
+          // Convert mouseX to data coordinate
+          const xData = chartInstance.posToVal(e.offsetX, 'x')
+          //chartInstance.posToVal(e.offsetX, 'x')
+          // Compute new min/max based on mouse position
           const newRange = range * scale
-          xMin = mid - newRange / 2 < 0
-          xMax = mid + newRange / 2
+          const ratio = (xData - xMin) / range // Mouse position as a ratio of current range
+          xMin = ratio < 0.5 ? xMin : xData - newRange * ratio
+          xMax = ratio >= 0.5 ? xMax : xMin + newRange
+
+          // Ensure limits are within valid range
           if (xMin < 0) xMin = 0
           if (xMax >= numPoints) xMax = numPoints - 1
+
+          // Apply new scale
           u.setScale('x', { min: xMin, max: xMax })
-          chartKey.value++
+
+          chartKey.value++ // Trigger update if needed
         })
+
+        // chartContainer.value.addEventListener('wheel', (e) => {
+        //   e.preventDefault() // Prevent page scrolling
+        //   let xMin = u.scales.x.min
+        //   let xMax = u.scales.x.max
+        //   const scale = e.deltaY > 0 ? 1.2 : 0.8
+
+        //   const range = xMax - xMin
+        //   const mid = xMin + range / 2
+        //   console.log(mid)
+        //   const newRange = range * scale
+        //   xMin = mid - newRange / 2
+        //   xMax = mid + newRange / 2
+        //   if (xMin < 0) xMin = 0
+        //   if (xMax >= numPoints) xMax = numPoints - 1
+        //   u.setScale('x', { min: xMin, max: xMax })
+        //   chartKey.value++
+        // })
 
         // ✅ Mouse Drag Panning (X-axis only)
         //let isDragging = false
@@ -131,15 +172,13 @@ const options = {
         // })
 
         chartContainer.value.addEventListener('mousemove', (e) => {
-          console.log(Math.round(chartInstance.posToVal(e.offsetX, 'x')))
+          //console.log(Math.round(chartInstance.posToVal(e.offsetX, 'x')))
           // if (!isDragging) return
-
           // const deltaX = e.clientX - startX
           // const shift = (deltaX * (xMax - xMin)) / u.width
           // xMin -= shift
           // xMax -= shift
           // startX = e.clientX
-
           // u.setScale('x', { min: xMin, max: xMax })
         })
 
@@ -149,12 +188,13 @@ const options = {
     ],
   },
   // series: [{ label: 'X Axis' }, ...ySeries.options],
-  series: [{ label: 'X Axis' }, 
-           ...ySeries.options.map((option) => ({
-             ...option,  // ویژگی‌های موجود در ySeries.options
-             points: { size: 6 },  // اندازه نقاط داده‌ها را کوچک‌تر می‌کنیم
-             width: 2,  // خط‌ها را نازک‌تر می‌کنیم
-           }))
+  series: [
+    { label: 'X Axis' },
+    ...ySeries.options.map((option) => ({
+      ...option, // ویژگی‌های موجود در ySeries.options
+      points: { size: 6 }, // اندازه نقاط داده‌ها را کوچک‌تر می‌کنیم
+      width: 2, // خط‌ها را نازک‌تر می‌کنیم
+    })),
   ],
   axes: [{ space: 40 }, ...yAxes],
 }
@@ -164,7 +204,7 @@ onMounted(async () => {
   if (chartContainer.value) {
     chartInstance = new uPlot(options, chartData.value, chartContainer.value)
   } else {
-    console.error("chartContainer is not available")
+    console.error('chartContainer is not available')
   }
 })
 
@@ -175,7 +215,7 @@ watch(
       chartInstance.setData(chartData.value)
     }
   },
-  { deep: true }
+  { deep: true },
 )
 
 onBeforeUnmount(() => {
