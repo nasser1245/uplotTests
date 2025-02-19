@@ -2,7 +2,8 @@
 import { onMounted, ref, watch, onBeforeUnmount } from 'vue'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
-//import signalR from '@microsoft/signalr'
+import SignalRService from '@/services/signalRService'
+
 const chartContainer = ref(null)
 let chartInstance = null
 const numSeries = 40
@@ -28,8 +29,8 @@ const generateSmoothData = (series = 2, points = 50) => {
     options[j] = {
       label: `دمای ${j + 1}`,
       stroke: '#' + (((1 << 24) * Math.random()) | 0).toString(16).padStart(6, '0'),
-      width: 1 + Math.floor(Math.random()*3) * 0.5,
-      dash: [10, 2, 3, 2],
+      width: 2,
+      dash: [2, 2, 4, 4],
       scale: scale,
       value: (self, rawValue) => {
         try {
@@ -37,8 +38,6 @@ const generateSmoothData = (series = 2, points = 50) => {
           const maxInRange = self.series[j + 1].max.toFixed(2)
           return `
           • ${rawValue.toFixed(2)}\r\n
-          ↧ ${minInRange}\r\n
-          ↥ ${maxInRange}\r\n
           ↧ ${minInRange}\r\n
           ↥ ${maxInRange}\r\n
           `
@@ -61,13 +60,22 @@ const xAxis = Array.from({ length: numPoints }, (_, i) => i)
 const ySeries = generateSmoothData(numSeries, numPoints)
 const chartData = ref([xAxis, ...ySeries.data])
 
-const yScales = {};
+const yScales = {}
 for (let i = 1; i <= 8; i++) {
-  yScales[`y${i}`] = { auto: true };
+  yScales[`y${i}`] = { auto: true }
 }
 
-const colors = ['#ff0000', '#0000ff', '#00ff00', '#ff8800', '#800080', '#8B4513', '#ff1493', '#00ffff'];
-const yAxes = [];
+const colors = [
+  '#ff0000',
+  '#0000ff',
+  '#00ff00',
+  '#ff8800',
+  '#800080',
+  '#8B4513',
+  '#ff1493',
+  '#00ffff',
+]
+const yAxes = []
 for (let i = 1; i <= 8; i++) {
   yAxes.push({
     scale: `y${i}`,
@@ -79,7 +87,7 @@ for (let i = 1; i <= 8; i++) {
     labelPos: 30, // جابجایی برچسب به سمت راست
     gap: 5,
     rotate: -50, // چرخش برچسب
-  });
+  })
 }
 
 const options = {
@@ -104,27 +112,20 @@ const options = {
     init: [
       (u) => {
         chartContainer.value.addEventListener('wheel', (e) => {
-          e.preventDefault() // Prevent page scrolling
-          let xMin = u.scales.x.min
-          let xMax = u.scales.x.max
-          console.log('Mouse wheel event')
-          const scale = e.deltaY > 0 ? 1.2 : 0.8
+          e.preventDefault()
+          const xMin = u.scales.x.min
+          const xMax = u.scales.x.max
+          const scale = e.deltaY < 0 ? 0.8 : 1.2
+          const mousePinter = chartInstance.posToVal(e.offsetX, 'x')
+          let xMinNew = mousePinter - scale * (mousePinter - xMin)
+          let xMaxNew = mousePinter + scale * (xMax - mousePinter)
+          if (xMinNew < 0) xMinNew = 0
+          if (xMaxNew >= numPoints) xMaxNew = numPoints - 1
 
-          const range = xMax - xMin
-          //const mid = xMin + chartInstance.valToPos(e.offsetX, 'x') * 
-          const mid = xMin + range / 2
-          const newRange = range * scale
-          xMin = mid - newRange / 2 < 0
-          xMax = mid + newRange / 2
-          if (xMin < 0) xMin = 0
-          if (xMax >= numPoints) xMax = numPoints - 1
-          u.setScale('x', { min: xMin, max: xMax })
-          chartKey.value++
+          // Apply new scale
+          u.setScale('x', { min: xMinNew, max: xMaxNew })
+          chartKey.value++ // Trigger update if needed
         })
-
-        // ✅ Mouse Drag Panning (X-axis only)
-        //let isDragging = false
-        //let startX = 0
 
         // chartContainer.value.addEventListener('mousedown', (e) => {
         //   isDragging = true
@@ -132,15 +133,13 @@ const options = {
         // })
 
         chartContainer.value.addEventListener('mousemove', (e) => {
-          console.log(Math.round(chartInstance.posToVal(e.offsetX, 'x')))
+          //console.log(Math.round(chartInstance.posToVal(e.offsetX, 'x')))
           // if (!isDragging) return
-
           // const deltaX = e.clientX - startX
           // const shift = (deltaX * (xMax - xMin)) / u.width
           // xMin -= shift
           // xMax -= shift
           // startX = e.clientX
-
           // u.setScale('x', { min: xMin, max: xMax })
         })
 
@@ -150,22 +149,36 @@ const options = {
     ],
   },
   // series: [{ label: 'X Axis' }, ...ySeries.options],
-  series: [{ label: 'X Axis' }, 
-           ...ySeries.options.map((option) => ({
-             ...option,  // ویژگی‌های موجود در ySeries.options
-             points: { size: 6 },  // اندازه نقاط داده‌ها را کوچک‌تر می‌کنیم
-             width: 2,  // خط‌ها را نازک‌تر می‌کنیم
-           }))
+  series: [
+    { label: 'X Axis' },
+    ...ySeries.options.map((option) => ({
+      ...option, // ویژگی‌های موجود در ySeries.options
+      points: { size: 6 }, // اندازه نقاط داده‌ها را کوچک‌تر می‌کنیم
+      width: 2, // خط‌ها را نازک‌تر می‌کنیم
+    })),
   ],
   axes: [{ space: 40 }, ...yAxes],
 }
 
 onMounted(async () => {
   //await sendData()
+  //debugger
+  try {
+    console.log('Start Connecting...')
+    await SignalRService.startConnection()
+    console.log('Connected!!!!')
+  } catch (exception) {
+    console.error(exception)
+  }
+  SignalRService.registerHandler('ReceiveMessage', (data) => {
+    this.message = data
+    console.log('New message received:', data)
+  })
+
   if (chartContainer.value) {
     chartInstance = new uPlot(options, chartData.value, chartContainer.value)
   } else {
-    console.error("chartContainer is not available")
+    console.error('chartContainer is not available')
   }
 })
 
@@ -176,7 +189,7 @@ watch(
       chartInstance.setData(chartData.value)
     }
   },
-  { deep: true }
+  { deep: true },
 )
 
 onBeforeUnmount(() => {
