@@ -6,8 +6,9 @@ class SignalRService {
   }
 
   async startConnection() {
+    //debugger
     this.connection = new signalR.HubConnectionBuilder()
-      .withUrl('https:/localhost:7234/onlineDataHub') // Replace with your SignalR hub URL
+      .withUrl('http://172.200.11.158:7234/onlineDataHub') // Replace with your SignalR hub URL
       .withAutomaticReconnect() // Auto-reconnect feature
       .configureLogging(signalR.LogLevel.Information)
       .build()

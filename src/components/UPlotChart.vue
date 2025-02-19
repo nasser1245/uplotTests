@@ -164,7 +164,9 @@ onMounted(async () => {
   //await sendData()
   //debugger
   try {
+    console.log('Start Connecting...')
     await SignalRService.startConnection()
+    console.log('Connected!!!!')
   } catch (exception) {
     console.error(exception)
   }
