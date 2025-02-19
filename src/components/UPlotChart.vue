@@ -2,7 +2,8 @@
 import { onMounted, ref, watch, onBeforeUnmount } from 'vue'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
-//import signalR from '@microsoft/signalr'
+import SignalRService from '@/services/signalRService'
+
 const chartContainer = ref(null)
 let chartInstance = null
 const numSeries = 40
@@ -28,8 +29,8 @@ const generateSmoothData = (series = 2, points = 50) => {
     options[j] = {
       label: `دمای ${j + 1}`,
       stroke: '#' + (((1 << 24) * Math.random()) | 0).toString(16).padStart(6, '0'),
-      width: 1,
-      dash: [100, 10, 50, 20],
+      width: 2,
+      dash: [2, 2, 4, 4],
       scale: scale,
       value: (self, rawValue) => {
         try {
@@ -37,8 +38,6 @@ const generateSmoothData = (series = 2, points = 50) => {
           const maxInRange = self.series[j + 1].max.toFixed(2)
           return `
           • ${rawValue.toFixed(2)}\r\n
-          ↧ ${minInRange}\r\n
-          ↥ ${maxInRange}\r\n
           ↧ ${minInRange}\r\n
           ↥ ${maxInRange}\r\n
           `
@@ -113,58 +112,20 @@ const options = {
     init: [
       (u) => {
         chartContainer.value.addEventListener('wheel', (e) => {
-          e.preventDefault() // Prevent page scrolling
-
-          let xMin = u.scales.x.min
-          let xMax = u.scales.x.max
-          const scale = e.deltaY > 0 ? 1.2 : 0.8 // Zoom in or out
-
-          const range = xMax - xMin
-
-          // Get mouse position relative to the chart
-          //const rect = chartContainer.value.getBoundingClientRect()
-          //const mouseX = e.clientX - rect.left
-
-          // Convert mouseX to data coordinate
-          const xData = chartInstance.posToVal(e.offsetX, 'x')
-          //chartInstance.posToVal(e.offsetX, 'x')
-          // Compute new min/max based on mouse position
-          const newRange = range * scale
-          const ratio = (xData - xMin) / range // Mouse position as a ratio of current range
-          xMin = ratio < 0.5 ? xMin : xData - newRange * ratio
-          xMax = ratio >= 0.5 ? xMax : xMin + newRange
-
-          // Ensure limits are within valid range
-          if (xMin < 0) xMin = 0
-          if (xMax >= numPoints) xMax = numPoints - 1
+          e.preventDefault()
+          const xMin = u.scales.x.min
+          const xMax = u.scales.x.max
+          const scale = e.deltaY < 0 ? 0.8 : 1.2
+          const mousePinter = chartInstance.posToVal(e.offsetX, 'x')
+          let xMinNew = mousePinter - scale * (mousePinter - xMin)
+          let xMaxNew = mousePinter + scale * (xMax - mousePinter)
+          if (xMinNew < 0) xMinNew = 0
+          if (xMaxNew >= numPoints) xMaxNew = numPoints - 1
 
           // Apply new scale
-          u.setScale('x', { min: xMin, max: xMax })
-
+          u.setScale('x', { min: xMinNew, max: xMaxNew })
           chartKey.value++ // Trigger update if needed
         })
-
-        // chartContainer.value.addEventListener('wheel', (e) => {
-        //   e.preventDefault() // Prevent page scrolling
-        //   let xMin = u.scales.x.min
-        //   let xMax = u.scales.x.max
-        //   const scale = e.deltaY > 0 ? 1.2 : 0.8
-
-        //   const range = xMax - xMin
-        //   const mid = xMin + range / 2
-        //   console.log(mid)
-        //   const newRange = range * scale
-        //   xMin = mid - newRange / 2
-        //   xMax = mid + newRange / 2
-        //   if (xMin < 0) xMin = 0
-        //   if (xMax >= numPoints) xMax = numPoints - 1
-        //   u.setScale('x', { min: xMin, max: xMax })
-        //   chartKey.value++
-        // })
-
-        // ✅ Mouse Drag Panning (X-axis only)
-        //let isDragging = false
-        //let startX = 0
 
         // chartContainer.value.addEventListener('mousedown', (e) => {
         //   isDragging = true
@@ -201,6 +162,17 @@ const options = {
 
 onMounted(async () => {
   //await sendData()
+  //debugger
+  try {
+    await SignalRService.startConnection()
+  } catch (exception) {
+    console.error(exception)
+  }
+  SignalRService.registerHandler('ReceiveMessage', (data) => {
+    this.message = data
+    console.log('New message received:', data)
+  })
+
   if (chartContainer.value) {
     chartInstance = new uPlot(options, chartData.value, chartContainer.value)
   } else {
